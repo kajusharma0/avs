@@ -574,7 +574,9 @@
             }
         }
 
-        window.onload = displayParties;
+        window.onload = () => {
+            checkLogin();
+        };
 
         function checkLogin() {
             if (sessionStorage.getItem('loggedIn') === 'true') {
