@@ -1,12 +1,12 @@
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const fs = require('fs');
-const path = require('path');
+const mongoose = require('mongoose');
+require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DATA_FILE = path.join(__dirname, 'data.json');
+const MONGODB_URI = process.env.MONGODB_URI;
 
 // Hardcoded user data
 const users = [
@@ -20,72 +20,110 @@ const users = [
 app.use(cors());
 app.use(bodyParser.json());
 
-// Initialize data file if it doesn't exist
-if (!fs.existsSync(DATA_FILE)) {
-    fs.writeFileSync(DATA_FILE, JSON.stringify([]));
+// MongoDB Connection
+if (MONGODB_URI) {
+    mongoose.connect(MONGODB_URI)
+        .then(() => console.log('Connected to MongoDB Atlas'))
+        .catch(err => console.error('MongoDB connection error:', err));
+} else {
+    console.warn('WARNING: MONGODB_URI not found. Data will not be saved permanently.');
 }
 
-// Helper to read data
-const readData = () => {
-    return JSON.parse(fs.readFileSync(DATA_FILE));
-};
-
-// Helper to write data
-const writeData = (data) => {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-};
-
-// Routes
-app.get('/api/parties', (req, res) => {
-    res.json(readData());
+// Database Schema
+const TripSchema = new mongoose.Schema({
+    tripDate: String,
+    vehicleNo: String,
+    weight: String,
+    freightAmount: Number,
+    openingBalance: Number,
+    advancePayment: Number,
+    loadingStation: String,
+    unloadingStation: String,
+    expenseAmount: Number,
+    expenseReason: String,
+    createdAt: String
 });
 
-app.post('/api/parties', (req, res) => {
-    const parties = readData();
-    const newParty = {
+const PaymentSchema = new mongoose.Schema({
+    amount: Number,
+    date: String,
+    createdAt: String
+});
+
+const PartySchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    contact: String,
+    trips: [TripSchema],
+    payments: [PaymentSchema]
+});
+
+const Party = mongoose.model('Party', PartySchema);
+
+// Routes
+app.get('/api/parties', async (req, res) => {
+    try {
+        const parties = await Party.find();
+        res.json(parties);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+app.post('/api/parties', async (req, res) => {
+    const party = new Party({
         name: req.body.name,
         contact: req.body.contact,
         trips: [],
         payments: []
-    };
-    parties.push(newParty);
-    writeData(parties);
-    res.status(201).json(newParty);
-});
-
-app.post('/api/parties/:index/trips', (req, res) => {
-    const parties = readData();
-    const index = parseInt(req.params.index);
-    if (parties[index]) {
-        parties[index].trips.push(req.body);
-        writeData(parties);
-        res.status(201).json(parties[index]);
-    } else {
-        res.status(404).send('Party not found');
+    });
+    try {
+        const newParty = await party.save();
+        res.status(201).json(newParty);
+    } catch (error) {
+        res.status(400).json({ message: error.message });
     }
 });
 
-app.delete('/api/parties/:index', (req, res) => {
-    const parties = readData();
-    const index = parseInt(req.params.index);
-    if (parties[index]) {
-        parties.splice(index, 1); // Remove the party at the given index
-        writeData(parties);
-        res.status(200).json({ message: 'Party deleted successfully' });
-    } else {
-        res.status(404).send('Party not found');
+app.post('/api/parties/:id/trips', async (req, res) => {
+    try {
+        const party = await Party.findById(req.params.id);
+        if (party) {
+            party.trips.push(req.body);
+            await party.save();
+            res.status(201).json(party);
+        } else {
+            res.status(404).send('Party not found');
+        }
+    } catch (error) {
+        res.status(400).json({ message: error.message });
     }
 });
 
-app.post('/api/parties/:index/payments', (req, res) => {
-    const parties = readData();
-    const index = parseInt(req.params.index);
-    if (parties[index]) {
-        parties[index].payments.push(req.body);
-        writeData(parties);
-        res.status(201).json(parties[index]);
-    } else {
-        res.status(404).send('Party not found');
+app.delete('/api/parties/:id', async (req, res) => {
+    try {
+        const party = await Party.findByIdAndDelete(req.params.id);
+        if (party) {
+            res.status(200).json({ message: 'Party deleted successfully' });
+        } else {
+            res.status(404).send('Party not found');
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+app.post('/api/parties/:id/payments', async (req, res) => {
+    try {
+        const party = await Party.findById(req.params.id);
+        if (party) {
+            party.payments.push(req.body);
+            await party.save();
+            res.status(201).json(party);
+        } else {
+            res.status(404).send('Party not found');
+        }
+    } catch (error) {
+        res.status(400).json({ message: error.message });
     }
 });
 
