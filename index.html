@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fleet Management</title>
+    <style>
+        body { font-family: sans-serif; }
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .btn { padding: 10px 15px; background-color: #007bff; color: white; border: none; cursor: pointer; }
+        #add-party-section { margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Fleet Management Accounts</h1>
+        <div id="add-party-section">
+            <button class="btn" onclick="showAddPartyForm()">Add New Party</button>
+            <form id="add-party-form" style="display: none; margin-top: 20px;">
+                <h3>Add New Party</h3>
+                <label for="party-name">Party Name:</label><br>
+                <input type="text" id="party-name" name="party-name"><br><br>
+                <label for="party-contact">Contact Details:</label><br>
+                <input type="text" id="party-contact" name="party-contact"><br><br>
+                <button type="button" class="btn" onclick="saveParty()">Save Party</button>
+            </form>
+        </div>
+        <div id="dashboard-section">
+            <h2>Dashboard</h2>
+            <div id="party-list">
+                <!-- Party details will be displayed here -->
+            </div>
+        </div>
+        <div id="party-details-section" style="display: none;">
+            <h2 id="party-details-name"></h2>
+            <div id="trip-list">
+                <!-- Trip details will be displayed here -->
+            </div>
+            <form id="add-trip-form" style="display: none; margin-top: 20px;">
+                <h3>Add New Trip</h3>
+                <label for="vehicle-no">Vehicle No:</label><br>
+                <input type="text" id="vehicle-no" name="vehicle-no"><br><br>
+                <label for="trip-party-name">Party Name:</label><br>
+                <input type="text" id="trip-party-name" name="trip-party-name" disabled><br><br>
+                <label for="weight">Weight of Freight:</label><br>
+                <input type="text" id="weight" name="weight"><br><br>
+                <label for="freight-amount">Freight Amount:</label><br>
+                <input type="text" id="freight-amount" name="freight-amount"><br><br>
+                <label for="opening-balance">Opening Balance:</label><br>
+                <input type="text" id="opening-balance" name="opening-balance"><br><br>
+                <label for="advance-payment">Advance Payment:</label><br>
+                <input type="text" id="advance-payment" name="advance-payment"><br><br>
+                <button type="button" class="btn" onclick="saveTrip()">Save Trip</button>
+            </form>
+        </div>
+    </div>
+    <script>
+        const API_URL = 'https://avs-backend-9gcl.onrender.com/api';
+
+        function showAddPartyForm() {
+            document.getElementById('add-party-form').style.display = 'block';
+        }
+
+        async function saveParty() {
+            const partyName = document.getElementById('party-name').value;
+            const partyContact = document.getElementById('party-contact').value;
+
+            if (partyName && partyContact) {
+                const party = { name: partyName, contact: partyContact };
+                try {
+                    const response = await fetch(`${API_URL}/parties`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(party)
+                    });
+                    if (response.ok) {
+                        document.getElementById('add-party-form').style.display = 'none';
+                        document.getElementById('party-name').value = '';
+                        document.getElementById('party-contact').value = '';
+                        displayParties();
+                    } else {
+                        alert('Error saving party');
+                    }
+                } catch (error) {
+                    console.error('Error saving party:', error);
+                    alert('Error saving party. Check if backend is running.');
+                }
+            } else {
+                alert('Please fill in all fields.');
+            }
+        }
+
+        function calculateBalance(party) {
+            let balance = 0;
+            if (party.trips) {
+                party.trips.forEach(trip => {
+                    balance += parseFloat(trip.freightAmount) || 0;
+                    balance -= parseFloat(trip.advancePayment) || 0;
+                });
+            }
+            if (party.payments) {
+                party.payments.forEach(payment => {
+                    balance -= parseFloat(payment.amount) || 0;
+                });
+            }
+            return balance;
+        }
+
+        async function displayParties() {
+            const partyList = document.getElementById('party-list');
+            partyList.innerHTML = '';
+            try {
+                const response = await fetch(`${API_URL}/parties`);
+                if (response.ok) {
+                    const parties = await response.json();
+                    let totalBalance = 0;
+
+                    parties.forEach((party, index) => {
+                        const balance = calculateBalance(party);
+                        totalBalance += balance;
+                        const partyDiv = document.createElement('div');
+                        partyDiv.innerHTML = `
+                            <p>
+                                <strong>${party.name}</strong> - ${party.contact} | <strong>Balance:</strong> ${balance.toFixed(2)}
+                                <button onclick="viewParty(${index})">View</button>
+                                <button onclick="viewPartyAndAddTrip(${index})">Add Trip</button>
+                                <button onclick="showAddPaymentForm(${index})">Add Payment</button>
+                            </p>
+                        `;
+                        partyList.appendChild(partyDiv);
+                    });
+
+                    document.getElementById('total-balance').innerText = totalBalance.toFixed(2);
+                } else {
+                    console.error('Error fetching parties');
+                }
+            } catch (error) {
+                console.error('Error fetching parties:', error);
+            }
+        }
+
+        async function viewParty(partyIndex) {
+            try {
+                const response = await fetch(`${API_URL}/parties`);
+                if (response.ok) {
+                    const parties = await response.json();
+                    const party = parties[partyIndex];
+
+                    document.getElementById('dashboard-section').style.display = 'none';
+                    document.getElementById('add-party-section').style.display = 'none';
+                    document.getElementById('party-details-section').style.display = 'block';
+                    document.getElementById('party-details-name').innerText = party.name;
+
+                    const tripListContainer = document.getElementById('trip-list');
+                    tripListContainer.innerHTML = ''; // Clear previous content
+
+                    const addTripButton = document.createElement('button');
+                    addTripButton.innerText = 'Add Trip';
+                    addTripButton.onclick = () => showAddTripForm(partyIndex);
+                    tripListContainer.appendChild(addTripButton);
+
+                    displayTrips(partyIndex);
+
+                    const backButton = document.createElement('button');
+                    backButton.innerText = 'Back to Dashboard';
+                    backButton.onclick = () => {
+                        document.getElementById('dashboard-section').style.display = 'block';
+                        document.getElementById('add-party-section').style.display = 'block';
+                        document.getElementById('party-details-section').style.display = 'none';
+                    };
+                    document.getElementById('party-details-section').appendChild(backButton);
+                }
+            } catch (error) {
+                console.error('Error viewing party:', error);
+            }
+        }
+
+        async function showAddTripForm(partyIndex) {
+            document.getElementById('add-trip-form').style.display = 'block';
+            try {
+                const response = await fetch(`${API_URL}/parties`);
+                if (response.ok) {
+                    const parties = await response.json();
+                    const party = parties[partyIndex];
+                    document.getElementById('trip-party-name').value = party.name;
+                    // Pass the partyIndex to the saveTrip function
+                    document.querySelector('#add-trip-form button').setAttribute('onclick', `saveTrip(${partyIndex})`);
+                }
+            } catch (error) {
+                console.error('Error showing trip form:', error);
+            }
+        }
+
+        function viewPartyAndAddTrip(partyIndex) {
+            viewParty(partyIndex);
+            showAddTripForm(partyIndex);
+        }
+
+        async function displayTrips(partyIndex) {
+            const tripList = document.getElementById('trip-list');
+            tripList.innerHTML = '';
+            try {
+                const response = await fetch(`${API_URL}/parties`);
+                if (response.ok) {
+                    const parties = await response.json();
+                    const party = parties[partyIndex];
+
+                    if (party && party.trips) {
+                        party.trips.forEach(trip => {
+                            const tripDiv = document.createElement('div');
+                            tripDiv.innerHTML = `
+                                <p>
+                                    <strong>Date:</strong> ${trip.createdAt} | 
+                                    <strong>Vehicle No:</strong> ${trip.vehicleNo} |
+                                    <strong>Weight:</strong> ${trip.weight} |
+                                    <strong>Freight Amount:</strong> ${trip.freightAmount} |
+                                    <strong>Opening Balance:</strong> ${trip.openingBalance} |
+                                    <strong>Advance:</strong> ${trip.advancePayment}
+                                </p>
+                            `;
+                            tripList.appendChild(tripDiv);
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('Error displaying trips:', error);
+            }
+        }
+
+        async function saveTrip(partyIndex) {
+            const vehicleNo = document.getElementById('vehicle-no').value;
+            const weight = document.getElementById('weight').value;
+            const freightAmount = document.getElementById('freight-amount').value;
+            const openingBalance = document.getElementById('opening-balance').value;
+            const advancePayment = document.getElementById('advance-payment').value;
+
+            if (vehicleNo && weight && freightAmount && openingBalance && advancePayment) {
+                const trip = { 
+                    vehicleNo, 
+                    weight, 
+                    freightAmount, 
+                    openingBalance, 
+                    advancePayment, 
+                    createdAt: new Date().toLocaleString()
+                };
+                try {
+                    const response = await fetch(`${API_URL}/parties/${partyIndex}/trips`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(trip)
+                    });
+                    if (response.ok) {
+                        document.getElementById('add-trip-form').style.display = 'none';
+                        document.getElementById('vehicle-no').value = '';
+                        document.getElementById('weight').value = '';
+                        document.getElementById('freight-amount').value = '';
+                        document.getElementById('opening-balance').value = '';
+                        document.getElementById('advance-payment').value = '';
+
+                        displayTrips(partyIndex);
+                        displayParties(); // Refresh the dashboard to show the updated balance
+                    } else {
+                        alert('Error saving trip');
+                    }
+                } catch (error) {
+                    console.error('Error saving trip:', error);
+                }
+            } else {
+                alert('Please fill in all fields.');
+            }
+        }
+
+        function showAddPaymentForm(partyIndex) {
+            document.getElementById('add-payment-form').style.display = 'block';
+            document.querySelector('#add-payment-form button').setAttribute('onclick', `savePayment(${partyIndex})`);
+        }
+
+        async function savePayment(partyIndex) {
+            const amount = document.getElementById('payment-amount').value;
+            if (amount) {
+                const payment = { amount };
+                try {
+                    const response = await fetch(`${API_URL}/parties/${partyIndex}/payments`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payment)
+                    });
+                    if (response.ok) {
+                        document.getElementById('add-payment-form').style.display = 'none';
+                        document.getElementById('payment-amount').value = '';
+                        displayParties();
+                    } else {
+                        alert('Error saving payment');
+                    }
+                } catch (error) {
+                    console.error('Error saving payment:', error);
+                }
+            } else {
+                alert('Please enter an amount.');
+            }
+        }
+
+        window.onload = displayParties;
+    </script>
+</body>
+</html>
