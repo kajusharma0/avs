@@ -8,6 +8,15 @@ const app = express();
 const PORT = 3000;
 const DATA_FILE = path.join(__dirname, 'data.json');
 
+// Hardcoded user data
+const users = [
+    { username: 'ashok', password: 'password1' },
+    { username: 'ashok', password: 'password2' },
+    { username: 'ashok', password: 'password3' },
+    { username: 'ashok', password: 'password4' },
+    { username: 'ashok', password: 'password5' },
+];
+
 app.use(cors());
 app.use(bodyParser.json());
 

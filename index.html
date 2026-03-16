@@ -301,6 +301,43 @@
         }
 
         window.onload = displayParties;
+
+        function checkLogin() {
+            if (sessionStorage.getItem('loggedIn') === 'true') {
+                document.getElementById('login-section').style.display = 'none';
+                document.getElementById('app-section').style.display = 'block';
+                displayParties();
+            }
+        }
+
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (response.ok) {
+                    sessionStorage.setItem('loggedIn', 'true');
+                    checkLogin();
+                } else {
+                    alert('Invalid credentials');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                alert('An error occurred during login.');
+            }
+        }
+
+        function logout() {
+            sessionStorage.removeItem('loggedIn');
+            document.getElementById('login-section').style.display = 'block';
+            document.getElementById('app-section').style.display = 'none';
+        }
     </script>
 </body>
 </html>
