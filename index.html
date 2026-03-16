@@ -259,33 +259,57 @@
                     <h3>Add New Trip</h3>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                         <div>
+                            <label for="trip-date">Trip Date</label>
+                            <input type="date" id="trip-date" name="trip-date">
+                        </div>
+                        <div>
                             <label for="vehicle-no">Vehicle No</label>
                             <input type="text" id="vehicle-no" name="vehicle-no">
                         </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                         <div>
                             <label for="trip-party-name">Party Name</label>
                             <input type="text" id="trip-party-name" name="trip-party-name" disabled>
                         </div>
-                    </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                         <div>
                             <label for="weight">Weight of Freight</label>
                             <input type="text" id="weight" name="weight">
                         </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                         <div>
                             <label for="freight-amount">Freight Amount</label>
                             <input type="text" id="freight-amount" name="freight-amount">
                         </div>
-                    </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                         <div>
                             <label for="opening-balance">Opening Balance</label>
                             <input type="text" id="opening-balance" name="opening-balance">
                         </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label for="loading-station">Loading Station</label>
+                            <input type="text" id="loading-station" name="loading-station" placeholder="From">
+                        </div>
+                        <div>
+                            <label for="unloading-station">Unloading Station</label>
+                            <input type="text" id="unloading-station" name="unloading-station" placeholder="To">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                         <div>
                             <label for="advance-payment">Advance Payment</label>
                             <input type="text" id="advance-payment" name="advance-payment">
                         </div>
+                        <div>
+                            <label for="expense-amount">Trip Expense Amount</label>
+                            <input type="number" id="expense-amount" name="expense-amount" placeholder="0.00">
+                        </div>
+                    </div>
+                    <div>
+                        <label for="expense-reason">Expense Reason</label>
+                        <input type="text" id="expense-reason" name="expense-reason" placeholder="Fuel, Toll, Maintenance, etc.">
                     </div>
                     <button type="button" class="btn btn-primary" onclick="saveTrip()">Save Trip</button>
                     <button type="button" class="btn btn-outline" onclick="document.getElementById('add-trip-form').style.display='none'">Cancel</button>
@@ -299,6 +323,8 @@
 
         <div id="add-payment-form" class="card" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; width: 90%; max-width: 400px;">
             <h3>Record Payment</h3>
+            <label for="payment-date">Date of Payment</label>
+            <input type="date" id="payment-date">
             <label for="payment-amount">Payment Amount</label>
             <input type="number" id="payment-amount" placeholder="Enter amount received">
             <button class="btn btn-primary" id="save-payment-btn" style="width: 100%; margin-bottom: 10px;">Confirm Payment</button>
@@ -481,13 +507,17 @@
                             tripDiv.innerHTML = `
                                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                                     <span style="font-weight: 600; color: var(--secondary-color);">${trip.vehicleNo}</span>
-                                    <span style="font-size: 0.75rem; color: var(--text-muted);">${trip.createdAt}</span>
+                                    <span style="font-size: 0.75rem; color: var(--text-muted);">Trip Date: ${trip.tripDate}</span>
                                 </div>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.85rem;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.85rem; margin-bottom: 10px;">
                                     <div><strong>Weight:</strong> ${trip.weight}</div>
                                     <div><strong>Freight:</strong> ₹ ${trip.freightAmount}</div>
                                     <div><strong>Opening:</strong> ₹ ${trip.openingBalance}</div>
                                     <div><strong>Advance:</strong> ₹ ${trip.advancePayment}</div>
+                                </div>
+                                <div style="border-top: 1px solid var(--border-color); padding-top: 8px; margin-top: 8px; font-size: 0.8rem;">
+                                    <div><strong>Route:</strong> ${trip.loadingStation || '-'} → ${trip.unloadingStation || '-'}</div>
+                                    <div style="color: #c53030;"><strong>Expense:</strong> ₹ ${trip.expenseAmount || '0'} (${trip.expenseReason || 'No reason'})</div>
                                 </div>
                             `;
                             tripList.appendChild(tripDiv);
@@ -502,19 +532,29 @@
         }
 
         async function saveTrip(partyIndex) {
+            const tripDate = document.getElementById('trip-date').value;
             const vehicleNo = document.getElementById('vehicle-no').value;
             const weight = document.getElementById('weight').value;
             const freightAmount = document.getElementById('freight-amount').value;
             const openingBalance = document.getElementById('opening-balance').value;
             const advancePayment = document.getElementById('advance-payment').value;
+            const loadingStation = document.getElementById('loading-station').value;
+            const unloadingStation = document.getElementById('unloading-station').value;
+            const expenseAmount = document.getElementById('expense-amount').value;
+            const expenseReason = document.getElementById('expense-reason').value;
 
             if (vehicleNo && weight && freightAmount && openingBalance && advancePayment) {
                 const trip = { 
+                    tripDate: tripDate || new Date().toISOString().split('T')[0],
                     vehicleNo, 
                     weight, 
                     freightAmount, 
                     openingBalance, 
                     advancePayment, 
+                    loadingStation,
+                    unloadingStation,
+                    expenseAmount: expenseAmount || 0,
+                    expenseReason,
                     createdAt: new Date().toLocaleString()
                 };
                 try {
@@ -525,11 +565,16 @@
                     });
                     if (response.ok) {
                         document.getElementById('add-trip-form').style.display = 'none';
+                        document.getElementById('trip-date').value = '';
                         document.getElementById('vehicle-no').value = '';
                         document.getElementById('weight').value = '';
                         document.getElementById('freight-amount').value = '';
                         document.getElementById('opening-balance').value = '';
                         document.getElementById('advance-payment').value = '';
+                        document.getElementById('loading-station').value = '';
+                        document.getElementById('unloading-station').value = '';
+                        document.getElementById('expense-amount').value = '';
+                        document.getElementById('expense-reason').value = '';
 
                         displayTrips(partyIndex);
                         displayParties(); 
@@ -540,7 +585,7 @@
                     console.error('Error saving trip:', error);
                 }
             } else {
-                alert('Please fill in all fields.');
+                alert('Please fill in required fields (Vehicle No, Weight, Freight, Opening Bal, Advance).');
             }
         }
 
@@ -551,8 +596,13 @@
 
         async function savePayment(partyIndex) {
             const amount = document.getElementById('payment-amount').value;
+            const paymentDate = document.getElementById('payment-date').value;
             if (amount) {
-                const payment = { amount, date: new Date().toLocaleString() };
+                const payment = { 
+                    amount, 
+                    date: paymentDate || new Date().toISOString().split('T')[0],
+                    createdAt: new Date().toLocaleString() 
+                };
                 try {
                     const response = await fetch(`${API_URL}/parties/${partyIndex}/payments`, {
                         method: 'POST',
@@ -562,6 +612,7 @@
                     if (response.ok) {
                         document.getElementById('add-payment-form').style.display = 'none';
                         document.getElementById('payment-amount').value = '';
+                        document.getElementById('payment-date').value = '';
                         displayParties();
                     } else {
                         alert('Error saving payment');
