@@ -65,6 +65,18 @@ app.post('/api/parties/:index/trips', (req, res) => {
     }
 });
 
+app.delete('/api/parties/:index', (req, res) => {
+    const parties = readData();
+    const index = parseInt(req.params.index);
+    if (parties[index]) {
+        parties.splice(index, 1); // Remove the party at the given index
+        writeData(parties);
+        res.status(200).json({ message: 'Party deleted successfully' });
+    } else {
+        res.status(404).send('Party not found');
+    }
+});
+
 app.post('/api/parties/:index/payments', (req, res) => {
     const parties = readData();
     const index = parseInt(req.params.index);
